@@ -1,13 +1,33 @@
 {
-  "name": "zerolimit",
-  "private": true,
+  "name": "@zerolimit/packages",
+  "version": "0.1.0",
   "description": "Reusable packages for Solid-based applications",
-  "workspaces": [
-    "packages/*"
-  ],
+  "type": "module",
+  "exports": {
+    "./solid-auth/core": "./packages/solid-auth/src/core/index.js",
+    "./solid-auth/express": "./packages/solid-auth/src/express/index.js",
+    "./solid-auth/react": "./packages/solid-auth/src/react/index.js"
+  },
   "scripts": {
     "test": "echo \"No tests yet\""
   },
+  "peerDependencies": {
+    "@inrupt/solid-client": "^2.0.0",
+    "@inrupt/solid-client-authn-node": "^2.0.0",
+    "express": "^4.18.0 || ^5.0.0",
+    "react": "^18.0.0 || ^19.0.0",
+    "ioredis": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@inrupt/solid-client": { "optional": false },
+    "@inrupt/solid-client-authn-node": { "optional": false },
+    "express": { "optional": true },
+    "react": { "optional": true },
+    "ioredis": { "optional": true }
+  },
   "author": "ZeroLimit",
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }
