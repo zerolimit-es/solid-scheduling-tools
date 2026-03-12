@@ -1,0 +1,13 @@
+{
+  "name": "zerolimit",
+  "private": true,
+  "description": "Reusable packages for Solid-based applications",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "echo \"No tests yet\""
+  },
+  "author": "ZeroLimit",
+  "license": "MIT"
+}
