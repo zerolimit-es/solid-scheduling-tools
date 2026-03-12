@@ -6,7 +6,12 @@
   "exports": {
     "./solid-auth/core": "./packages/solid-auth/src/core/index.js",
     "./solid-auth/express": "./packages/solid-auth/src/express/index.js",
-    "./solid-auth/react": "./packages/solid-auth/src/react/index.js"
+    "./solid-auth/react": "./packages/solid-auth/src/react/index.js",
+    "./passkey-mfa/core": "./packages/passkey-mfa/src/core/index.js",
+    "./passkey-mfa/express": "./packages/passkey-mfa/src/express/index.js",
+    "./passkey-mfa/react": "./packages/passkey-mfa/src/react/index.js",
+    "./solid-pod-sync/core": "./packages/solid-pod-sync/src/core/index.js",
+    "./solid-pod-sync/express": "./packages/solid-pod-sync/src/express/index.js"
   },
   "scripts": {
     "test": "echo \"No tests yet\""
@@ -14,13 +19,17 @@
   "peerDependencies": {
     "@inrupt/solid-client": "^2.0.0",
     "@inrupt/solid-client-authn-node": "^2.0.0",
+    "@simplewebauthn/server": "^13.0.0",
+    "@simplewebauthn/browser": "^13.0.0",
     "express": "^4.18.0 || ^5.0.0",
     "react": "^18.0.0 || ^19.0.0",
     "ioredis": "^5.0.0"
   },
   "peerDependenciesMeta": {
-    "@inrupt/solid-client": { "optional": false },
-    "@inrupt/solid-client-authn-node": { "optional": false },
+    "@inrupt/solid-client": { "optional": true },
+    "@inrupt/solid-client-authn-node": { "optional": true },
+    "@simplewebauthn/server": { "optional": true },
+    "@simplewebauthn/browser": { "optional": true },
     "express": { "optional": true },
     "react": { "optional": true },
     "ioredis": { "optional": true }
