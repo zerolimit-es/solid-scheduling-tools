@@ -128,7 +128,10 @@ export function createAuthRouter(options) {
 
         res.redirect(`${returnTo}?login=success`);
       } else {
-        res.redirect(`${frontendUrl}?login=failed`);
+        logger.warn('[SolidAuth] CALLBACK: isLoggedIn=false — session may not have been restored.',
+          'solidSessionId:', req.session?.solidSessionId || 'NONE',
+          'sessionInfo:', JSON.stringify(sessionInfo));
+        res.redirect(`${frontendUrl}?login=failed&message=${encodeURIComponent('Identity provider did not complete authentication. Please try again.')}`);
       }
     } catch (error) {
       logger.error('[SolidAuth] Callback error:', error);
