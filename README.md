@@ -1,6 +1,6 @@
 # Solid Scheduling Tools
 
-Shared libraries for [Proton Scheduler](https://github.com/zerolimit-es/proton-scheduler) — a privacy-first scheduling app built on the [Solid Protocol](https://solidproject.org/).
+Shared libraries for [Proton Scheduler](https://github.com/zerolimit-es/solid-scheduler) — a privacy-first scheduling app built on the [Solid Protocol](https://solidproject.org/).
 
 This monorepo contains three packages:
 
