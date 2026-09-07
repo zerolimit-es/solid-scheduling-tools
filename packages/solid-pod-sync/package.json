@@ -1,6 +1,6 @@
 {
   "name": "@zerolimit/solid-pod-sync",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Solid Pod CRUD operations, sync engine, and RDF vocabulary helpers for scheduling apps",
   "type": "module",
   "exports": {
@@ -8,7 +8,7 @@
     "./express": "./src/express/index.js"
   },
   "peerDependencies": {
-    "@inrupt/solid-client": "^2.0.0",
+    "@inrupt/solid-client": "^2.0.0 || ^3.0.0",
     "express": "^4.18.0 || ^5.0.0"
   },
   "peerDependenciesMeta": {
