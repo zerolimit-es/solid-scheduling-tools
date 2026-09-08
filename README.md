@@ -43,6 +43,7 @@ import { PasskeyChallenge, PasskeySettings } from '@zerolimit/packages/passkey-m
 | `@simplewebauthn/server` | passkey-mfa | Yes |
 | `@simplewebauthn/browser` | passkey-mfa (react) | Optional |
 | `express` | All (express subpaths) | Optional |
+| `express-rate-limit` | All (express subpaths) | Optional (needed by the express routers) |
 | `react` | solid-auth, passkey-mfa (react) | Optional |
 | `ioredis` | solid-auth, passkey-mfa (Redis stores) | Optional |
 
@@ -66,6 +67,12 @@ All stores (session, challenge, credential) are injectable — no hardcoded data
   to permit additional origins; anything else falls back to `frontendUrl`.
 - **Issuer validation** — `oidcIssuer` must be an `http(s)` URL; other values
   are rejected before any request is made to the provider.
+- **Rate limiting** — the Express routers apply `express-rate-limit` to the
+  login, callback, passkey challenge/verify and Pod sync endpoints by default.
+  Pass `rateLimit: { limit, windowMs, ... }` to tune, a middleware function to
+  supply your own limiter, or `rateLimit: false` to disable (for example when
+  the app already mounts a limiter). Behind a reverse proxy, set
+  `app.set('trust proxy', 1)` so limits key on the client IP.
 - **Log hygiene** — request-controlled values are stripped of line breaks
   before logging, and the OIDC callback URL is logged with its authorization
   code redacted. Helpers are exported from `solid-auth/core` (`sanitizeForLog`,

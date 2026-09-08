@@ -11,7 +11,17 @@
  */
 
 import { Router } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { saveBooking, loadBookings } from '../core/solid.js';
+
+/** Default limits for the Pod sync endpoints (each request hits the Pod). */
+const DEFAULT_RATE_LIMIT = {
+  windowMs: 60 * 1000,
+  limit: 60,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many requests', message: 'Please try again later.' },
+};
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 500;
@@ -43,9 +53,19 @@ export function createSyncRouter(options) {
   const logger = options.logger ?? console;
   const router = Router();
 
+  // Rate limiting (express-rate-limit). Pass `rateLimit: false` to disable
+  // (e.g. when the app mounts its own limiter), an options object to tune the
+  // defaults, or a middleware function to supply a custom limiter.
+  const limiter =
+    options.rateLimit === false
+      ? (_req, _res, next) => next()
+      : typeof options.rateLimit === 'function'
+        ? options.rateLimit
+        : rateLimit({ ...DEFAULT_RATE_LIMIT, ...(options.rateLimit ?? {}) });
+
   // ── POST /bookings — sync unsynced bookings to Pod ──
 
-  router.post('/bookings', async (req, res) => {
+  router.post('/bookings', limiter, async (req, res) => {
     try {
       const podUrl = getPodUrl(req);
       const authFetch = getAuthenticatedFetch(req);
@@ -104,7 +124,7 @@ export function createSyncRouter(options) {
 
   // ── GET /bookings — load bookings from Pod (with optional fallback) ──
 
-  router.get('/bookings', async (req, res) => {
+  router.get('/bookings', limiter, async (req, res) => {
     try {
       const podUrl = getPodUrl(req);
       const authFetch = getAuthenticatedFetch(req);
@@ -144,7 +164,7 @@ export function createSyncRouter(options) {
 
   // ── GET /pod-status — check Pod connectivity ──
 
-  router.get('/pod-status', async (req, res) => {
+  router.get('/pod-status', limiter, async (req, res) => {
     try {
       const authFetch = getAuthenticatedFetch(req);
       if (!authFetch) {

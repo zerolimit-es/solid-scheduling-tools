@@ -9,6 +9,7 @@
  */
 
 import { Router } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { discoverPodUrls } from '../core/pod-discovery.js';
 import { DEFAULT_PROVIDERS, DEFAULT_IDP } from '../core/providers.js';
 import {
@@ -18,6 +19,15 @@ import {
   sanitizeForLog,
   redactUrlForLog,
 } from '../core/safe-url.js';
+
+/** Default limits for the login, callback, logout and pod-url endpoints. */
+const DEFAULT_RATE_LIMIT = {
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many requests', message: 'Please try again later.' },
+};
 
 /**
  * Create an Express Router with Solid OIDC authentication endpoints.
@@ -42,6 +52,16 @@ export function createAuthRouter(options) {
   const providers = customProviders ?? DEFAULT_PROVIDERS;
   const router = Router();
 
+  // Rate limiting (express-rate-limit). Pass `rateLimit: false` to disable
+  // (e.g. when the app mounts its own limiter), an options object to tune the
+  // defaults, or a middleware function to supply a custom limiter.
+  const limiter =
+    options.rateLimit === false
+      ? (_req, _res, next) => next()
+      : typeof options.rateLimit === 'function'
+        ? options.rateLimit
+        : rateLimit({ ...DEFAULT_RATE_LIMIT, ...(options.rateLimit ?? {}) });
+
   // Origins that `returnTo` may point at. The frontend origin is always
   // allowed; apps can add more via options.allowedReturnOrigins.
   const allowedReturnOrigins = [frontendUrl, ...(options.allowedReturnOrigins ?? [])];
@@ -50,7 +70,7 @@ export function createAuthRouter(options) {
   const resolveReturnTo = (candidate) => resolveAllowedRedirect(candidate, allowedReturnOrigins);
 
   // ── GET /login ──────────────────────────────────────────────────────────
-  router.get('/login', async (req, res) => {
+  router.get('/login', limiter, async (req, res) => {
     try {
       const { oidcIssuer, returnTo } = req.query;
 
@@ -106,7 +126,7 @@ export function createAuthRouter(options) {
   });
 
   // ── GET /callback ───────────────────────────────────────────────────────
-  router.get('/callback', async (req, res) => {
+  router.get('/callback', limiter, async (req, res) => {
     try {
       const fullUrl = `${baseUrl}${req.originalUrl}`;
       // Never log the raw callback URL: it carries the OIDC authorization code
@@ -247,7 +267,7 @@ export function createAuthRouter(options) {
   });
 
   // ── PUT /pod-url ────────────────────────────────────────────────────────
-  router.put('/pod-url', async (req, res) => {
+  router.put('/pod-url', limiter, async (req, res) => {
     try {
       const webId = req.solidSession?.info?.webId || req.session?.webId;
       if (!webId) return res.status(401).json({ error: 'Not authenticated' });
@@ -280,7 +300,7 @@ export function createAuthRouter(options) {
   });
 
   // ── POST /logout ────────────────────────────────────────────────────────
-  router.post('/logout', async (req, res) => {
+  router.post('/logout', limiter, async (req, res) => {
     try {
       // Hook: before logout
       if (onLogout) {

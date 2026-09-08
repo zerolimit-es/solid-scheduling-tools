@@ -24,6 +24,9 @@
  * @property {(req: import('express').Request) => string} [getTimezone] — Get organizer timezone
  * @property {Partial<PodPaths>} [podPaths] — Path overrides
  * @property {Console} [logger] — Logger (default: console)
+ * @property {false|Object|Function} [rateLimit] — Rate limiting for the sync endpoints:
+ *   `false` disables, an object tunes express-rate-limit options, a function supplies
+ *   custom middleware (default: 60 req / min per IP)
  */
 
 export {};

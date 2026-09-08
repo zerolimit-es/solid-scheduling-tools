@@ -39,6 +39,9 @@
  * @property {string} origin — Expected origin for verification
  * @property {(req: any) => string|null} getUserId — Extract user ID from request
  * @property {(req: any) => string|null} getWebId — Extract WebID from request
+ * @property {false|Object|Function} [rateLimit] — Rate limiting for the challenge/verify endpoints:
+ *   `false` disables, an object tunes express-rate-limit options, a function supplies
+ *   custom middleware (default: 30 req / 15 min per IP)
  */
 
 export {};

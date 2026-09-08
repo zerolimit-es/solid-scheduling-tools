@@ -55,6 +55,9 @@
  * @property {string} [clientName]      — OIDC client name (default: "Solid App")
  * @property {SolidProvider[]} [providers] — Custom provider list (uses defaults if omitted)
  * @property {string} [defaultIdp]      — Default OIDC issuer URL
+ * @property {false|Object|Function} [rateLimit] — Rate limiting for login/callback/logout/pod-url:
+ *                                        `false` disables, an object tunes express-rate-limit options,
+ *                                        a function supplies custom middleware (default: 30 req / 15 min)
  * @property {(req: any, ctx: CallbackContext) => Promise<CallbackResult|void>} [onCallback]
  * @property {(req: any, ctx: {oidcIssuer: string}) => Promise<void>} [onLogin]
  * @property {(req: any) => Promise<void>} [onLogout]
