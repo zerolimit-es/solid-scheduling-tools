@@ -11,11 +11,17 @@
  */
 
 import { Router } from 'express';
-import {
-  saveBooking,
-  loadBookings,
-  initializeSchedulerContainer,
-} from '../core/solid.js';
+import { saveBooking, loadBookings } from '../core/solid.js';
+
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 500;
+
+/** Parse a user-supplied page size into a bounded positive integer. */
+function parseLimit(raw) {
+  const n = Number.parseInt(String(raw ?? ''), 10);
+  if (!Number.isFinite(n) || n < 1) return DEFAULT_LIMIT;
+  return Math.min(n, MAX_LIMIT);
+}
 
 /**
  * Create an Express Router with Pod sync endpoints.
@@ -102,7 +108,7 @@ export function createSyncRouter(options) {
     try {
       const podUrl = getPodUrl(req);
       const authFetch = getAuthenticatedFetch(req);
-      const limit = parseInt(req.query?.limit || '20');
+      const limit = parseLimit(req.query?.limit);
 
       let bookings = [];
       let source = 'fallback';

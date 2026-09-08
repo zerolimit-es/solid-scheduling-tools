@@ -18,6 +18,23 @@ import { getPodUrlAll, getSolidDataset, getThing, getUrlAll } from '@inrupt/soli
 const PIM_STORAGE = 'http://www.w3.org/ns/pim/space#storage';
 
 /**
+ * True when the WebID is hosted on inrupt.com (or a subdomain of it).
+ * Uses the parsed hostname rather than a substring match so that
+ * e.g. "https://inrupt.com.evil.example/" is not treated as Inrupt.
+ *
+ * @param {string} webId
+ * @returns {boolean}
+ */
+function isInruptWebId(webId) {
+  try {
+    const host = new URL(webId).hostname;
+    return host === 'inrupt.com' || host.endsWith('.inrupt.com');
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Discover Pod URLs for a given WebID.
  *
  * @param {string} webId              — The user's WebID URL
@@ -160,7 +177,7 @@ export async function discoverPodUrls(webId, authenticatedFetch, options = {}) {
   }
 
   // ── Strategy 5: Inrupt PodSpaces account API ──────────────────────────
-  if (strategies[4] !== false && pods.length === 0 && webId.includes('inrupt.com')) {
+  if (strategies[4] !== false && pods.length === 0 && isInruptWebId(webId)) {
     logger.log('[SolidAuth] Trying strategy 5 (Inrupt /account/ endpoint)...');
     try {
       const accountRes = await authenticatedFetch('https://login.inrupt.com/.account/', {

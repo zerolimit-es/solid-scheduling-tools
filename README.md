@@ -59,6 +59,18 @@ packages/<name>/src/
 
 All stores (session, challenge, credential) are injectable — no hardcoded database or Redis dependencies. You provide the storage backend that fits your stack.
 
+## Security notes
+
+- **Redirect allowlist** — `createAuthRouter` only honours a `returnTo` query
+  parameter whose origin matches `frontendUrl`. Pass `allowedReturnOrigins`
+  to permit additional origins; anything else falls back to `frontendUrl`.
+- **Issuer validation** — `oidcIssuer` must be an `http(s)` URL; other values
+  are rejected before any request is made to the provider.
+- **Log hygiene** — request-controlled values are stripped of line breaks
+  before logging, and the OIDC callback URL is logged with its authorization
+  code redacted. Helpers are exported from `solid-auth/core` (`sanitizeForLog`,
+  `redactUrlForLog`, `resolveAllowedRedirect`, `appendQueryParams`).
+
 ## License
 
 MIT

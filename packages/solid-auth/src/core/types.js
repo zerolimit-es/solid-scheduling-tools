@@ -50,6 +50,8 @@
  * @property {import('./session-manager.js').SolidSessionManager} sessionManager
  * @property {string} baseUrl           — Backend base URL (e.g. "https://api.example.com")
  * @property {string} frontendUrl       — Frontend URL for redirects (e.g. "https://example.com")
+ * @property {string[]} [allowedReturnOrigins] — Extra origins the `returnTo` query param may redirect to
+ *                                        (the origin of `frontendUrl` is always allowed)
  * @property {string} [clientName]      — OIDC client name (default: "Solid App")
  * @property {SolidProvider[]} [providers] — Custom provider list (uses defaults if omitted)
  * @property {string} [defaultIdp]      — Default OIDC issuer URL

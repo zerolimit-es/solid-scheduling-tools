@@ -43,6 +43,9 @@ export function createPasskeyRouter(options) {
   const logger = options.logger ?? console;
   const router = Router();
 
+  /** Strip line breaks so request-controlled values cannot forge log lines. */
+  const forLog = (value) => String(value ?? '').replace(/\n|\r/g, '');
+
   // ── Middleware: require OIDC login ──
   function requireOidc(req, res, next) {
     const loggedIn = req.solidSession?.info?.isLoggedIn || !!req.session?.webId;
@@ -105,7 +108,10 @@ export function createPasskeyRouter(options) {
         return res.status(400).json({ error: 'Challenge expired or not found — try again' });
       }
 
-      const { body, deviceName } = req.body;
+      const { body, deviceName } = req.body || {};
+      if (!body || typeof body !== 'object') {
+        return res.status(400).json({ error: 'Missing registration response' });
+      }
 
       const verification = await verifyRegistrationResponse({
         response: body,
@@ -183,7 +189,10 @@ export function createPasskeyRouter(options) {
         return res.status(400).json({ error: 'Challenge expired or not found — try again' });
       }
 
-      const { body } = req.body;
+      const { body } = req.body || {};
+      if (!body || typeof body.id !== 'string') {
+        return res.status(400).json({ error: 'Missing authentication response' });
+      }
       const passkey = await credentialStore.getByCredentialId(body.id);
       if (!passkey) {
         return res.status(400).json({ error: 'Passkey not found' });
@@ -258,7 +267,7 @@ export function createPasskeyRouter(options) {
         return res.status(404).json({ error: 'Passkey not found' });
       }
 
-      logger.log(`[PasskeyMFA] Deleted passkey ${req.params.id} for user ${userId}`);
+      logger.log('[PasskeyMFA] Deleted passkey', forLog(req.params.id), 'for user', forLog(userId));
       res.json({ success: true });
     } catch (error) {
       logger.error('[PasskeyMFA] Delete error:', error);

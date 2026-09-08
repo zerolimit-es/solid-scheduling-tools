@@ -10,7 +10,14 @@
 
 import { Router } from 'express';
 import { discoverPodUrls } from '../core/pod-discovery.js';
-import { DEFAULT_PROVIDERS, DEFAULT_IDP, mergeProviders } from '../core/providers.js';
+import { DEFAULT_PROVIDERS, DEFAULT_IDP } from '../core/providers.js';
+import {
+  parseHttpUrl,
+  resolveAllowedRedirect,
+  appendQueryParams,
+  sanitizeForLog,
+  redactUrlForLog,
+} from '../core/safe-url.js';
 
 /**
  * Create an Express Router with Solid OIDC authentication endpoints.
@@ -35,17 +42,43 @@ export function createAuthRouter(options) {
   const providers = customProviders ?? DEFAULT_PROVIDERS;
   const router = Router();
 
+  // Origins that `returnTo` may point at. The frontend origin is always
+  // allowed; apps can add more via options.allowedReturnOrigins.
+  const allowedReturnOrigins = [frontendUrl, ...(options.allowedReturnOrigins ?? [])];
+
+  /** Validate a user-supplied returnTo; null if it is off-origin or malformed. */
+  const resolveReturnTo = (candidate) => resolveAllowedRedirect(candidate, allowedReturnOrigins);
+
   // ── GET /login ──────────────────────────────────────────────────────────
   router.get('/login', async (req, res) => {
     try {
       const { oidcIssuer, returnTo } = req.query;
-      if (returnTo) {
-        req.session.returnTo = returnTo;
+
+      // Only accept returnTo targets on an allowed origin (open-redirect guard)
+      const safeReturnTo = resolveReturnTo(returnTo);
+      if (returnTo && !safeReturnTo) {
+        logger.warn('[SolidAuth] Ignoring returnTo outside allowed origins:', sanitizeForLog(returnTo));
       }
+      if (safeReturnTo) {
+        req.session.returnTo = safeReturnTo;
+      }
+
+      // The issuer must be an http(s) URL — reject arrays, other schemes, garbage
+      const issuer = oidcIssuer || defaultIdp;
+      if (!parseHttpUrl(issuer)) {
+        logger.warn('[SolidAuth] Rejected invalid oidcIssuer:', sanitizeForLog(issuer));
+        return res.redirect(
+          appendQueryParams(safeReturnTo || frontendUrl, {
+            login: 'error',
+            message: 'Invalid identity provider URL.',
+          })
+        );
+      }
+      req.session.oidcIssuer = issuer;
 
       // Hook: before login
       if (onLogin) {
-        await onLogin(req, { oidcIssuer: oidcIssuer || defaultIdp });
+        await onLogin(req, { oidcIssuer: issuer });
       }
 
       // Always create a fresh session to avoid stale OIDC client registration
@@ -55,7 +88,7 @@ export function createAuthRouter(options) {
 
       const redirectUrl = `${baseUrl}/api/auth/callback`;
       await sessionManager.startLogin(freshSession, {
-        oidcIssuer: oidcIssuer || defaultIdp,
+        oidcIssuer: issuer,
         redirectUrl,
         clientName,
         handleRedirect: (url) => res.redirect(url),
@@ -64,9 +97,10 @@ export function createAuthRouter(options) {
       logger.error('[SolidAuth] Login error:', error);
       const returnTo = req.session.returnTo || frontendUrl;
       res.redirect(
-        `${returnTo}?login=error&message=${encodeURIComponent(
-          'This provider could not be reached. Try a different one.'
-        )}`
+        appendQueryParams(returnTo, {
+          login: 'error',
+          message: 'This provider could not be reached. Try a different one.',
+        })
       );
     }
   });
@@ -75,7 +109,8 @@ export function createAuthRouter(options) {
   router.get('/callback', async (req, res) => {
     try {
       const fullUrl = `${baseUrl}${req.originalUrl}`;
-      logger.log('[SolidAuth] CALLBACK fullUrl:', fullUrl);
+      // Never log the raw callback URL: it carries the OIDC authorization code
+      logger.log('[SolidAuth] CALLBACK url:', redactUrlForLog(fullUrl));
 
       const sessionInfo = await sessionManager.handleCallback(req.solidSession, fullUrl);
       logger.log('[SolidAuth] CALLBACK sessionInfo:', JSON.stringify(sessionInfo));
@@ -119,25 +154,31 @@ export function createAuthRouter(options) {
           req.session.mfaPending = true;
         }
 
-        const returnTo = hookResult?.redirectUrl || req.session.returnTo || frontendUrl;
+        // Re-validate the stored returnTo so a stale/tampered session value
+        // can never redirect off the allowed origins
+        const returnTo =
+          hookResult?.redirectUrl || resolveReturnTo(req.session.returnTo) || frontendUrl;
         delete req.session.returnTo;
 
         if (req.session.mfaPending) {
-          return res.redirect(`${returnTo}?login=mfa-required`);
+          return res.redirect(appendQueryParams(returnTo, { login: 'mfa-required' }));
         }
 
-        res.redirect(`${returnTo}?login=success`);
+        res.redirect(appendQueryParams(returnTo, { login: 'success' }));
       } else {
         logger.warn('[SolidAuth] CALLBACK: isLoggedIn=false — session may not have been restored.',
           'solidSessionId:', req.session?.solidSessionId || 'NONE',
           'sessionInfo:', JSON.stringify(sessionInfo));
-        res.redirect(`${frontendUrl}?login=failed&message=${encodeURIComponent('Identity provider did not complete authentication. Please try again.')}`);
+        res.redirect(
+          appendQueryParams(frontendUrl, {
+            login: 'failed',
+            message: 'Identity provider did not complete authentication. Please try again.',
+          })
+        );
       }
     } catch (error) {
       logger.error('[SolidAuth] Callback error:', error);
-      res.redirect(
-        `${frontendUrl}?login=error&message=${encodeURIComponent(error.message)}`
-      );
+      res.redirect(appendQueryParams(frontendUrl, { login: 'error', message: error.message }));
     }
   });
 
@@ -212,8 +253,9 @@ export function createAuthRouter(options) {
       if (!webId) return res.status(401).json({ error: 'Not authenticated' });
 
       const { podUrl } = req.body || {};
-      if (!podUrl || typeof podUrl !== 'string' || !podUrl.startsWith('https://')) {
-        return res.status(400).json({ error: 'Invalid Pod URL — must start with https://' });
+      const parsedPodUrl = parseHttpUrl(podUrl);
+      if (!parsedPodUrl || parsedPodUrl.protocol !== 'https:') {
+        return res.status(400).json({ error: 'Invalid Pod URL — must be a valid https:// URL' });
       }
 
       // Normalize: ensure trailing slash
@@ -229,7 +271,7 @@ export function createAuthRouter(options) {
         }
       }
 
-      logger.log('[SolidAuth] Pod URL manually set:', normalized, 'for', webId);
+      logger.log('[SolidAuth] Pod URL manually set:', sanitizeForLog(normalized), 'for', sanitizeForLog(webId));
       res.json({ success: true, podUrl: normalized });
     } catch (error) {
       logger.error('[SolidAuth] Pod URL save error:', error);
