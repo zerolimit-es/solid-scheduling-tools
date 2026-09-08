@@ -10,6 +10,8 @@
  * Supports: DAILY, WEEKLY, MONTHLY, YEARLY frequencies
  */
 
+import { randomUUID } from 'crypto';
+
 /**
  * @typedef {Object} RecurrenceRule
  * @property {string} frequency - DAILY, WEEKLY, MONTHLY, YEARLY
@@ -40,8 +42,6 @@ const DAY_MAP = {
 };
 
 const DAY_NAMES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
-
-const FREQUENCY_ORDER = ['YEARLY', 'MONTHLY', 'WEEKLY', 'DAILY'];
 
 /**
  * Parse an RRULE string into a RecurrenceRule object
@@ -452,7 +452,7 @@ export function isSameOccurrence(date1, date2) {
  * Generate a series ID for recurring events
  */
 export function generateSeriesId() {
-  return `series-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `series-${randomUUID()}`;
 }
 
 /**

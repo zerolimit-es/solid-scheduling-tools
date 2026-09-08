@@ -7,6 +7,7 @@
  */
 
 import { Router } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import crypto from 'crypto';
 import {
   generateRegistrationOptions,
@@ -14,6 +15,15 @@ import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
+
+/** Default limits for the challenge and verification endpoints. */
+const DEFAULT_RATE_LIMIT = {
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many requests', message: 'Please try again later.' },
+};
 
 /**
  * Create an Express Router with passkey MFA endpoints.
@@ -43,6 +53,19 @@ export function createPasskeyRouter(options) {
   const logger = options.logger ?? console;
   const router = Router();
 
+  // Rate limiting (express-rate-limit). Pass `rateLimit: false` to disable
+  // (e.g. when the app mounts its own limiter), an options object to tune the
+  // defaults, or a middleware function to supply a custom limiter.
+  const limiter =
+    options.rateLimit === false
+      ? (_req, _res, next) => next()
+      : typeof options.rateLimit === 'function'
+        ? options.rateLimit
+        : rateLimit({ ...DEFAULT_RATE_LIMIT, ...(options.rateLimit ?? {}) });
+
+  /** Strip line breaks so request-controlled values cannot forge log lines. */
+  const forLog = (value) => String(value ?? '').replace(/\n|\r/g, '');
+
   // ── Middleware: require OIDC login ──
   function requireOidc(req, res, next) {
     const loggedIn = req.solidSession?.info?.isLoggedIn || !!req.session?.webId;
@@ -54,7 +77,7 @@ export function createPasskeyRouter(options) {
 
   // ── Registration ──
 
-  router.get('/register-options', requireOidc, async (req, res) => {
+  router.get('/register-options', limiter, requireOidc, async (req, res) => {
     try {
       if (req.session?.mfaPending) {
         return res.status(403).json({ error: 'Complete MFA verification before registering new passkeys' });
@@ -91,7 +114,7 @@ export function createPasskeyRouter(options) {
     }
   });
 
-  router.post('/register-verify', requireOidc, async (req, res) => {
+  router.post('/register-verify', limiter, requireOidc, async (req, res) => {
     try {
       if (req.session?.mfaPending) {
         return res.status(403).json({ error: 'Complete MFA verification first' });
@@ -105,7 +128,10 @@ export function createPasskeyRouter(options) {
         return res.status(400).json({ error: 'Challenge expired or not found — try again' });
       }
 
-      const { body, deviceName } = req.body;
+      const { body, deviceName } = req.body || {};
+      if (!body || typeof body !== 'object') {
+        return res.status(400).json({ error: 'Missing registration response' });
+      }
 
       const verification = await verifyRegistrationResponse({
         response: body,
@@ -146,7 +172,7 @@ export function createPasskeyRouter(options) {
 
   // ── Authentication (MFA challenge) ──
 
-  router.get('/auth-options', requireOidc, async (req, res) => {
+  router.get('/auth-options', limiter, requireOidc, async (req, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(400).json({ error: 'User not found' });
@@ -173,7 +199,7 @@ export function createPasskeyRouter(options) {
     }
   });
 
-  router.post('/auth-verify', requireOidc, async (req, res) => {
+  router.post('/auth-verify', limiter, requireOidc, async (req, res) => {
     try {
       const userId = getUserId(req);
       if (!userId) return res.status(400).json({ error: 'User not found' });
@@ -183,7 +209,10 @@ export function createPasskeyRouter(options) {
         return res.status(400).json({ error: 'Challenge expired or not found — try again' });
       }
 
-      const { body } = req.body;
+      const { body } = req.body || {};
+      if (!body || typeof body.id !== 'string') {
+        return res.status(400).json({ error: 'Missing authentication response' });
+      }
       const passkey = await credentialStore.getByCredentialId(body.id);
       if (!passkey) {
         return res.status(400).json({ error: 'Passkey not found' });
@@ -258,7 +287,7 @@ export function createPasskeyRouter(options) {
         return res.status(404).json({ error: 'Passkey not found' });
       }
 
-      logger.log(`[PasskeyMFA] Deleted passkey ${req.params.id} for user ${userId}`);
+      logger.log('[PasskeyMFA] Deleted passkey', forLog(req.params.id), 'for user', forLog(userId));
       res.json({ success: true });
     } catch (error) {
       logger.error('[PasskeyMFA] Delete error:', error);

@@ -11,6 +11,7 @@
  * no config globals, no database coupling.
  */
 
+import { randomUUID } from 'crypto';
 import {
   getSolidDataset,
   saveSolidDatasetAt,
@@ -19,7 +20,6 @@ import {
   setThing,
   getThing,
   getThingAll,
-  removeThing,
   getUrl,
   getStringNoLocale,
   getBoolean,
@@ -33,9 +33,6 @@ import {
   createContainerAt,
   getContainedResourceUrlAll,
   deleteFile,
-  overwriteFile,
-  getFile,
-  isContainer,
   getPodUrlAll,
   universalAccess,
 } from '@inrupt/solid-client';
@@ -249,7 +246,7 @@ export async function saveBooking(podUrl, booking, fetch, pathConfig) {
   await initializeSchedulerContainer(podUrl, fetch, pathConfig);
   
   // Generate booking ID and URL
-  const bookingId = booking.id || `booking-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const bookingId = booking.id || `booking-${randomUUID()}`;
   const bookingUrl = `${paths.bookings}${bookingId}.ttl`;
 
   // Skip if already exists on Pod (idempotent sync)

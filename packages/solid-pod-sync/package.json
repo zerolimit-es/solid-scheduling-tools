@@ -9,10 +9,12 @@
   },
   "peerDependencies": {
     "@inrupt/solid-client": "^2.0.0 || ^3.0.0",
-    "express": "^4.18.0 || ^5.0.0"
+    "express": "^4.18.0 || ^5.0.0",
+    "express-rate-limit": "^7.0.0 || ^8.0.0"
   },
   "peerDependenciesMeta": {
-    "express": { "optional": true }
+    "express": { "optional": true },
+    "express-rate-limit": { "optional": true }
   },
   "engines": { "node": ">=18.0.0" }
 }
