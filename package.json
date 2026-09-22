@@ -17,7 +17,7 @@
     "test": "echo \"No tests yet\""
   },
   "peerDependencies": {
-    "@inrupt/solid-client": "^2.0.0 || ^3.0.0",
+    "@inrupt/solid-client": "^2.0.0 || ^3.0.0 || ^4.0.0",
     "@inrupt/solid-client-authn-node": "^2.0.0 || ^3.0.0 || ^4.0.0 || ^5.0.0",
     "@simplewebauthn/server": "^13.0.0 || ^14.0.0",
     "@simplewebauthn/browser": "^13.0.0 || ^14.0.0",
