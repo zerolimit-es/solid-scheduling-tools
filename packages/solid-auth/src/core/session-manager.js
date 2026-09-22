@@ -37,7 +37,7 @@ export class SolidSessionManager {
    */
   async getSession(sessionId) {
     if (sessionId) {
-      const session = await getSessionFromStorage(sessionId, { storage: this.storage });
+      const session = await getSessionFromStorage(sessionId, this.storage);
       if (session) return session;
     }
     return new Session({ storage: this.storage });
@@ -129,7 +129,7 @@ export class SolidSessionManager {
       try {
         const allIds = await getSessionIdFromStorageAll(this.storage);
         for (const sid of allIds) {
-          const restored = await getSessionFromStorage(sid, { storage: this.storage });
+          const restored = await getSessionFromStorage(sid, this.storage);
           if (restored?.info?.isLoggedIn && restored.info.webId === wid) {
             this.fetchMap.set(wid, restored.fetch);
             this.logger.log('[SolidAuth] Restored session for', wid);
@@ -153,7 +153,7 @@ export class SolidSessionManager {
     const sessionIds = await getSessionIdFromStorageAll(this.storage);
     const sessions = [];
     for (const id of sessionIds) {
-      const session = await getSessionFromStorage(id, { storage: this.storage });
+      const session = await getSessionFromStorage(id, this.storage);
       if (session) {
         sessions.push({
           id: session.info.sessionId,
