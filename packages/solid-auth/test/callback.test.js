@@ -14,24 +14,19 @@ const realFetch = globalThis.fetch;
 
 let server;
 let baseUrl;
-let sessionManager;
+const sessionManager = {
+  fetchMap: new Map(),
+  discarded: [],
+  async handleCallback(session) {
+    session.info.isLoggedIn = true;
+    session.info.webId = VICTIM;
+    return { isLoggedIn: true, webId: VICTIM, sessionId: session.info.sessionId };
+  },
+  async discardSession(session) { this.discarded.push(session.info.sessionId); },
+  async logout() { throw new Error('logout() would clear the shared fetchMap'); },
+};
 let hookCalls;
 let hookResult;
-
-function makeSessionManager() {
-  return {
-    fetchMap: new Map([[VICTIM, 'victim-live-fetch']]),
-    discarded: [],
-    loggedOut: [],
-    async handleCallback(session) {
-      session.info.isLoggedIn = true;
-      session.info.webId = VICTIM;
-      return { isLoggedIn: true, webId: VICTIM, sessionId: session.info.sessionId };
-    },
-    async discardSession(session) { this.discarded.push(session.info.sessionId); },
-    async logout(session) { this.loggedOut.push(session.info.sessionId); },
-  };
-}
 
 before(async () => {
   // Public WebID profile: the victim trusts only REAL_IDP.
@@ -57,14 +52,13 @@ before(async () => {
     };
     next();
   });
-  app.use('/api/auth', (req, res, next) => createAuthRouter({
+  app.use('/api/auth', createAuthRouter({
     sessionManager,
     baseUrl: 'http://backend.test',
     frontendUrl: 'http://frontend.test',
-    rateLimit: false,
     logger: { log() {}, warn() {}, error() {} },
     onCallback: async (_req, ctx) => { hookCalls.push(ctx.webId); return hookResult; },
-  })(req, res, next));
+  }));
 
   await new Promise((resolve) => { server = app.listen(0, resolve); });
   baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -76,7 +70,8 @@ after(() => {
 });
 
 beforeEach(() => {
-  sessionManager = makeSessionManager();
+  sessionManager.fetchMap = new Map([[VICTIM, 'victim-live-fetch']]);
+  sessionManager.discarded = [];
   hookCalls = [];
   hookResult = undefined;
 });

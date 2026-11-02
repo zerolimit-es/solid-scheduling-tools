@@ -35,7 +35,6 @@ before(async () => {
     rpName: 'Test', rpId: 'localhost', origin: 'http://localhost',
     getUserId: (req) => req.userId,
     getWebId: () => null,
-    rateLimit: false,
     logger: { log() {}, warn: (...a) => logged.push(a.join(' ')), error() {} },
   }));
   await new Promise((resolve) => { server = app.listen(0, resolve); });
