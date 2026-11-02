@@ -67,6 +67,16 @@ All stores (session, challenge, credential) are injectable — no hardcoded data
   to permit additional origins; anything else falls back to `frontendUrl`.
 - **Issuer validation** — `oidcIssuer` must be an `http(s)` URL; other values
   are rejected before any request is made to the provider.
+- **WebID ↔ issuer binding** — after the OIDC callback, `createAuthRouter`
+  fetches the WebID's public profile and only accepts the login if the profile
+  lists the issuer as `solid:oidcIssuer` (Solid-OIDC). Otherwise the session is
+  discarded and the user is sent to `frontendUrl` with `login=failed`. This
+  check runs before `onCallback` and cannot be disabled; pass `verifyIssuer`
+  to replace it (for example with one that uses an SSRF-guarded fetch).
+  `onCallback` can refuse a login itself by returning `{ reject: true }`.
+- **Passkey ownership** — `/auth-verify` only accepts a credential whose
+  `userId` (as returned by `credentialStore.getByCredentialId`) is the user
+  being verified, so one account's passkey can't satisfy another's MFA.
 - **Rate limiting** — the Express routers apply `express-rate-limit` to the
   login, callback, passkey challenge/verify and Pod sync endpoints by default.
   Pass `rateLimit: { limit, windowMs, ... }` to tune, a middleware function to
