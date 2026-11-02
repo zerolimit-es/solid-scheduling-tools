@@ -45,7 +45,6 @@
     "@inrupt/solid-client": "^4.0.0",
     "@inrupt/solid-client-authn-node": "^5.0.3",
     "@simplewebauthn/server": "^14.0.3",
-    "cookie-session": "^2.1.1",
     "express": "^5.3.0",
     "express-rate-limit": "^8.7.2"
   }

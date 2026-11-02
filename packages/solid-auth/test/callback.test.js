@@ -5,7 +5,6 @@
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
-import cookieSession from 'cookie-session';
 import { createAuthRouter } from '../src/express/router.js';
 
 const VICTIM = 'https://victim.example/profile/card#me';
@@ -26,6 +25,7 @@ const sessionManager = {
   async logout() { throw new Error('logout() would clear the shared fetchMap'); },
 };
 let hookCalls;
+let lastSession;
 let hookResult;
 
 before(async () => {
@@ -41,11 +41,12 @@ before(async () => {
   };
 
   const app = express();
-  app.use(cookieSession({ name: 's', secret: 'test-secret' }));
   app.use((req, _res, next) => {
-    // State left behind by /login with the chosen issuer.
+    // A plain object stands in for the app's session middleware, holding the
+    // state /login leaves behind; the test inspects it after the request.
+    req.session = { solidSessionId: 'sid-1' };
     if (req.query.issuer) req.session.oidcIssuer = req.query.issuer;
-    req.session.solidSessionId = 'sid-1';
+    lastSession = req.session;
     req.solidSession = {
       info: { sessionId: 'sid-1', isLoggedIn: false },
       fetch: async () => { throw new Error('no pod discovery in tests'); },
@@ -79,10 +80,8 @@ beforeEach(() => {
 async function callback(issuer) {
   const qs = issuer ? `&issuer=${encodeURIComponent(issuer)}` : '';
   const res = await realFetch(`${baseUrl}/api/auth/callback?code=x&state=y${qs}`, { redirect: 'manual' });
-  const match = (res.headers.get('set-cookie') || '').match(/(?:^|,\s*)s=([^;]+)/);
-  const session = match ? JSON.parse(Buffer.from(match[1], 'base64').toString()) : {};
   const location = new URL(res.headers.get('location'));
-  return { location, session };
+  return { location, session: lastSession };
 }
 
 describe('GET /callback issuer binding', () => {
