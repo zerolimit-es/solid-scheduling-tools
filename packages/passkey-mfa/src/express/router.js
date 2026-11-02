@@ -213,8 +213,14 @@ export function createPasskeyRouter(options) {
       if (!body || typeof body.id !== 'string') {
         return res.status(400).json({ error: 'Missing authentication response' });
       }
+      // The credential must belong to the user being verified. Stores look
+      // credentials up by ID alone, so without this check a passkey from any
+      // other account would satisfy this account's MFA.
       const passkey = await credentialStore.getByCredentialId(body.id);
-      if (!passkey) {
+      if (!passkey || passkey.userId == null || String(passkey.userId) !== String(userId)) {
+        if (passkey) {
+          logger.warn('[PasskeyMFA] Rejected passkey belonging to another user for user', forLog(userId));
+        }
         return res.status(400).json({ error: 'Passkey not found' });
       }
 

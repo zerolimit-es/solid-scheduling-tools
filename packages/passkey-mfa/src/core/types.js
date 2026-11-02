@@ -12,6 +12,8 @@
  * @typedef {Object} CredentialStore
  * @property {(userId: string) => Promise<PasskeyRecord[]>} getByUser
  * @property {(credentialId: string) => Promise<PasskeyRecord|null>} getByCredentialId
+ *   — Must return the record's owner as `userId`; /auth-verify rejects a credential
+ *     whose `userId` is not the user being verified.
  * @property {(record: PasskeyRecord) => Promise<void>} save
  * @property {(id: string, userId: string) => Promise<boolean>} remove
  * @property {(credentialId: string, counter: number) => Promise<void>} updateCounter

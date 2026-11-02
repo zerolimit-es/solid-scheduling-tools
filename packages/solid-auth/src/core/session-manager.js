@@ -164,6 +164,26 @@ export class SolidSessionManager {
   }
 
   /**
+   * End a session and delete it from storage *without* touching the fetchMap.
+   *
+   * Use this to throw away a session whose login was rejected: the fetchMap
+   * is keyed by WebID, so `logout()` would also drop the authenticated fetch
+   * of the real owner of that WebID, who may be signed in elsewhere.
+   *
+   * @param {Session} session
+   */
+  async discardSession(session) {
+    if (!session?.info) return;
+    this.uncacheSession(session.info.sessionId);
+    if (session.info.isLoggedIn) {
+      await session.logout();
+    }
+    if (session.info.sessionId) {
+      await this.storage.delete(session.info.sessionId);
+    }
+  }
+
+  /**
    * Logout and clean up session storage.
    *
    * @param {Session} session

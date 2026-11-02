@@ -6,11 +6,17 @@
  *
  * App-specific logic is injected via lifecycle hooks (onLogin, onCallback,
  * onLogout) so the router stays generic.
+ *
+ * Every login is checked against Solid-OIDC's issuer binding: the WebID's
+ * public profile must list the issuer the login was started with as a
+ * `solid:oidcIssuer`. Without that check anyone running an OIDC provider
+ * could mint a token claiming any WebID.
  */
 
 import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { discoverPodUrls } from '../core/pod-discovery.js';
+import { verifyWebIdIssuer } from '../core/webid-issuer.js';
 import { DEFAULT_PROVIDERS, DEFAULT_IDP } from '../core/providers.js';
 import {
   parseHttpUrl,
@@ -47,6 +53,11 @@ export function createAuthRouter(options) {
     onCallback,
     onLogout,
   } = options;
+
+  // (webId, issuer) => Promise<{ ok: boolean, reason?: string }>. Overridable
+  // (e.g. to supply a fetch that blocks private addresses), not disableable.
+  const verifyIssuer = options.verifyIssuer ?? verifyWebIdIssuer;
+  const REJECTED_LOGIN_MESSAGE = 'This identity provider is not authorised for that WebID.';
 
   const logger = options.logger ?? console;
   const providers = customProviders ?? DEFAULT_PROVIDERS;
@@ -125,6 +136,30 @@ export function createAuthRouter(options) {
     }
   });
 
+  /**
+   * Throw away a login that must not stand: end the Solid session, delete it
+   * from storage, and clear every identity field from the cookie session.
+   * The fetchMap is left alone on purpose (see SessionManager#discardSession).
+   */
+  async function rejectLogin(req, res, reason) {
+    logger.warn('[SolidAuth] Login rejected:', sanitizeForLog(reason));
+    try {
+      await sessionManager.discardSession(req.solidSession);
+    } catch (err) {
+      logger.warn('[SolidAuth] Could not discard rejected session:', err.message);
+    }
+    if (req.session) {
+      for (const key of ['solidSessionId', 'webId', 'podUrl', 'tenantId', 'oidcIssuer',
+        'returnTo', 'mfaPending', 'mfaVerified']) {
+        delete req.session[key];
+      }
+    }
+    delete req.user;
+    return res.redirect(
+      appendQueryParams(frontendUrl, { login: 'failed', message: REJECTED_LOGIN_MESSAGE })
+    );
+  }
+
   // ── GET /callback ───────────────────────────────────────────────────────
   router.get('/callback', limiter, async (req, res) => {
     try {
@@ -136,6 +171,19 @@ export function createAuthRouter(options) {
       logger.log('[SolidAuth] CALLBACK sessionInfo:', JSON.stringify(sessionInfo));
 
       if (sessionInfo.isLoggedIn) {
+        // Solid-OIDC issuer binding. Runs before anything trusts the WebID or
+        // writes session state, and fails closed on any error.
+        let issuerCheck;
+        try {
+          issuerCheck = await verifyIssuer(sessionInfo.webId, req.session?.oidcIssuer);
+        } catch (err) {
+          issuerCheck = { ok: false, reason: err.message };
+        }
+        if (!issuerCheck?.ok) {
+          return rejectLogin(req, res,
+            `issuer not trusted by WebID ${sessionInfo.webId}: ${issuerCheck?.reason ?? 'unknown'}`);
+        }
+
         req.session.solidSessionId = sessionInfo.sessionId;
         // Clear stale tenantId so downstream middleware resolves correctly
         delete req.session.tenantId;
@@ -167,6 +215,12 @@ export function createAuthRouter(options) {
           } catch (hookErr) {
             logger.error('[SolidAuth] onCallback hook error:', hookErr.message);
           }
+        }
+
+        // The app may veto the login (e.g. account disabled)
+        if (hookResult?.reject) {
+          sessionManager.fetchMap.delete(sessionInfo.webId);
+          return rejectLogin(req, res, `rejected by onCallback: ${hookResult.reason ?? 'no reason given'}`);
         }
 
         // Check if hook wants to override redirect or flag MFA
