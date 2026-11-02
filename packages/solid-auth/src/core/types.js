@@ -58,7 +58,12 @@
  * @property {false|Object|Function} [rateLimit] — Rate limiting for login/callback/logout/pod-url:
  *                                        `false` disables, an object tunes express-rate-limit options,
  *                                        a function supplies custom middleware (default: 30 req / 15 min)
+ * @property {(webId: string, issuer: string) => Promise<{ok: boolean, reason?: string}>} [verifyIssuer]
+ *   — Replace the Solid-OIDC issuer check (default: verifyWebIdIssuer, which fetches the
+ *   public WebID profile). Cannot be turned off; a login that fails it is rejected.
  * @property {(req: any, ctx: CallbackContext) => Promise<CallbackResult|void>} [onCallback]
+ *   — Runs after the issuer check. Errors it throws are logged and the login proceeds;
+ *   return `{ reject: true }` to refuse the login instead.
  * @property {(req: any, ctx: {oidcIssuer: string}) => Promise<void>} [onLogin]
  * @property {(req: any) => Promise<void>} [onLogout]
  */
@@ -73,6 +78,9 @@
 /**
  * @typedef {Object} CallbackResult
  * @property {string} [redirectUrl]   — Override the default redirect URL
+ * @property {boolean} [reject]       — Refuse the login: the session is discarded and the
+ *                                      user is redirected with `login=failed`
+ * @property {string} [reason]        — Logged when `reject` is set
  * @property {boolean} [mfaPending]   — Flag MFA as pending
  */
 
