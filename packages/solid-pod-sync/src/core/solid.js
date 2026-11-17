@@ -38,7 +38,7 @@ import {
 } from '@inrupt/solid-client';
 
 import { SCHEMA, SCHED, VCARD, dayNameToUri, uriToDayName } from './rdf.js';
-import { buildRRule, parseRRule, generateSeriesId } from './recurrence.js';
+import { buildRRule, parseRRule, generateSeriesId, expandRecurringEvent } from './recurrence.js';
 
 /** @type {import('./types.js').PodPaths} */
 const DEFAULT_POD_PATHS = {
@@ -428,7 +428,15 @@ export async function loadBookings(podUrl, fetch, options = {}, pathConfig) {
             
             // Apply filters
             if (!options.includeCancelled && booking.status === SCHEMA.EventCancelled) continue;
-            if (options.from && booking.start < options.from) continue;
+            // A recurring series stays relevant after its first occurrence:
+            // keep it unless it has ended (UNTIL) before the range starts.
+            // Callers expand it to see which occurrences fall in the range.
+            if (options.from && booking.start < options.from) {
+              const seriesEnd = booking.isRecurring && recurrence
+                ? (recurrence.until ? new Date(recurrence.until) : null)
+                : booking.start;
+              if (seriesEnd && seriesEnd < options.from) continue;
+            }
             if (options.to && booking.start > options.to) continue;
             if (options.status && booking.status !== options.status) continue;
             
@@ -688,29 +696,34 @@ export async function getUserPods(webId, fetchFn) {
  * @param {Date} end - Proposed end time
  * @param {Function} fetch - Authenticated fetch function
  * @param {Partial<import('./types.js').PodPaths>} [pathConfig] - Path overrides
+ * @param {{ timezone?: string }} [options] - Timezone recurring bookings repeat in
  * @returns {boolean} True if there's a conflict
  */
-export async function checkSlotConflict(podUrl, start, end, fetch, pathConfig) {
-  const bookings = await loadBookings(podUrl, fetch, {
-    from: new Date(start.getTime() - 24 * 60 * 60 * 1000), // 1 day before
-    to: new Date(end.getTime() + 24 * 60 * 60 * 1000), // 1 day after
-  }, pathConfig);
-  
+export async function checkSlotConflict(podUrl, start, end, fetch, pathConfig, options = {}) {
+  const rangeStart = new Date(new Date(start).getTime() - 24 * 60 * 60 * 1000); // 1 day before
+  const rangeEnd = new Date(new Date(end).getTime() + 24 * 60 * 60 * 1000); // 1 day after
+  const bookings = await loadBookings(podUrl, fetch, { from: rangeStart, to: rangeEnd }, pathConfig);
+
   const startTime = new Date(start).getTime();
   const endTime = new Date(end).getTime();
-  
+
   for (const booking of bookings) {
     if (booking.status === SCHEMA.EventCancelled) continue;
-    
-    const bookingStart = new Date(booking.start).getTime();
-    const bookingEnd = new Date(booking.end).getTime();
-    
-    // Check for overlap
-    if (startTime < bookingEnd && endTime > bookingStart) {
-      return true;
+
+    // Every occurrence of a recurring booking takes its slot, not just the first
+    const occurrences = booking.isRecurring && booking.recurrence
+      ? expandRecurringEvent(booking, { rangeStart, rangeEnd, maxOccurrences: 20, timezone: options.timezone })
+      : [booking];
+
+    for (const occurrence of occurrences) {
+      const bookingStart = new Date(occurrence.start).getTime();
+      const bookingEnd = new Date(occurrence.end).getTime();
+      if (startTime < bookingEnd && endTime > bookingStart) {
+        return true;
+      }
     }
   }
-  
+
   return false;
 }
 
