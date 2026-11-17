@@ -20,6 +20,7 @@ import {
   setThing,
   getThing,
   getThingAll,
+  removeThing,
   getUrl,
   getStringNoLocale,
   getBoolean,
@@ -163,14 +164,40 @@ export async function saveAvailability(podUrl, availability, fetch, pathConfig) 
     dataset = setThing(dataset, settings);
   }
   
-  // Save to Pod — delete first to avoid 412 ETag conflict
+  // Save to Pod. An existing file is updated in place: its contents are
+  // swapped for the new ones in a single request, so a failed save leaves
+  // the previous settings intact. (Deleting first and then writing left the
+  // Pod with no settings at all if the write failed.)
+  let existing = null;
   try {
-    await deleteFile(paths.availability, { fetch });
+    existing = await getSolidDataset(paths.availability, { fetch });
   } catch (e) {
-    // ignore if file doesn't exist
+    // Not there yet (or unreadable): create it below
+  }
+
+  if (existing) {
+    try {
+      let updated = existing;
+      for (const thing of getThingAll(existing)) updated = removeThing(updated, thing);
+      for (const thing of getThingAll(dataset)) updated = setThing(updated, thing);
+      await saveSolidDatasetAt(paths.availability, updated, { fetch });
+      return paths.availability;
+    } catch (e) {
+      // Only a server that cannot update in place gets the old
+      // delete-and-recreate. Any other failure (offline, forbidden, server
+      // error) is reported with the previous settings still in the Pod.
+      const status = e?.statusCode ?? e?.response?.status;
+      if (![405, 415, 501].includes(status)) throw e;
+      console.warn('[Solid] This Pod cannot update availability in place; replacing the file');
+      try {
+        await deleteFile(paths.availability, { fetch });
+      } catch (deleteError) {
+        // ignore if file doesn't exist
+      }
+    }
   }
   await saveSolidDatasetAt(paths.availability, dataset, { fetch });
-  
+
   return paths.availability;
 }
 
@@ -341,6 +368,23 @@ export async function saveBooking(podUrl, booking, fetch, pathConfig) {
   return bookingUrl;
 }
 
+/** How many Pod resources to read at once. */
+const READ_CONCURRENCY = 8;
+
+/** Map `items` through an async function, at most `size` at a time, keeping order. */
+async function mapInBatches(items, size, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(size, items.length) }, worker));
+  return results;
+}
+
 /**
  * Load all bookings from a user's Pod
  * @param {string} podUrl - Root URL of the Pod
@@ -357,8 +401,12 @@ export async function loadBookings(podUrl, fetch, options = {}, pathConfig) {
     const container = await getSolidDataset(paths.bookings, { fetch });
     const resourceUrls = getContainedResourceUrlAll(container);
     
-    for (const resourceUrl of resourceUrls) {
-      if (!resourceUrl.endsWith('.ttl')) continue;
+    // One request per booking: read them a few at a time rather than one
+    // after another, so a Pod with many bookings does not take N round trips
+    // in sequence. Results keep the container's order.
+    const readResource = async (resourceUrl) => {
+      const bookings = [];
+      if (!resourceUrl.endsWith('.ttl')) return bookings;
       
       try {
         const dataset = await getSolidDataset(resourceUrl, { fetch });
@@ -446,8 +494,11 @@ export async function loadBookings(podUrl, fetch, options = {}, pathConfig) {
       } catch (err) {
         console.warn(`Failed to load booking from ${resourceUrl}:`, err.message);
       }
-    }
-    
+      return bookings;
+    };
+    const perResource = await mapInBatches(resourceUrls, READ_CONCURRENCY, readResource);
+    bookings.push(...perResource.flat());
+
     // Sort by start date
     bookings.sort((a, b) => new Date(a.start) - new Date(b.start));
     
