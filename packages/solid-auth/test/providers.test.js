@@ -42,3 +42,21 @@ describe('GET /providers', () => {
     assert.equal(body.providers[0].name, 'localhost:3000');
   });
 });
+
+describe('stripTrailingSlashes', async () => {
+  const { stripTrailingSlashes } = await import('../src/core/safe-url.js');
+
+  it('removes any number of trailing slashes and nothing else', () => {
+    assert.equal(stripTrailingSlashes('https://id.example.org///'), 'https://id.example.org');
+    assert.equal(stripTrailingSlashes('https://id.example.org/path'), 'https://id.example.org/path');
+    assert.equal(stripTrailingSlashes('///'), '');
+    assert.equal(stripTrailingSlashes(null), '');
+  });
+
+  it('stays fast on a long run of slashes', () => {
+    const input = `${'/'.repeat(100000)}x`;
+    const started = process.hrtime.bigint();
+    assert.equal(stripTrailingSlashes(input), input);
+    assert.ok(Number(process.hrtime.bigint() - started) / 1e6 < 100, 'well under 100 ms');
+  });
+});

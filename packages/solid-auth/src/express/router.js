@@ -24,12 +24,12 @@ import {
   appendQueryParams,
   sanitizeForLog,
   redactUrlForLog,
+  stripTrailingSlashes,
 } from '../core/safe-url.js';
 
 /** Compare issuer URLs ignoring a trailing slash. */
 function sameIssuer(a, b) {
-  const norm = (u) => String(u ?? '').replace(/\/+$/, '');
-  return norm(a) === norm(b);
+  return stripTrailingSlashes(a) === stripTrailingSlashes(b);
 }
 
 /** A readable name for a provider URL: its host (and port). */

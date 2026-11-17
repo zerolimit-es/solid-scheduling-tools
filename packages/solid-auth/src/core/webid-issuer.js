@@ -10,6 +10,7 @@
  */
 
 import { getSolidDataset, getThing, getUrlAll } from '@inrupt/solid-client';
+import { stripTrailingSlashes } from './safe-url.js';
 
 export const SOLID_OIDC_ISSUER = 'http://www.w3.org/ns/solid/terms#oidcIssuer';
 
@@ -27,7 +28,7 @@ export function normalizeIssuer(value) {
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
   url.hash = '';
   url.search = '';
-  return url.href.replace(/\/+$/, '');
+  return stripTrailingSlashes(url.href);
 }
 
 /**
