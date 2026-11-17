@@ -97,3 +97,18 @@ export function redactUrlForLog(urlString) {
   }
   return sanitizeForLog(url.href);
 }
+
+/**
+ * Remove trailing slashes. A plain loop rather than a regular expression
+ * such as /\/+$/, whose matching time grows with the square of the input on
+ * strings with many slashes.
+ *
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function stripTrailingSlashes(value) {
+  const s = String(value ?? '');
+  let end = s.length;
+  while (end > 0 && s.charCodeAt(end - 1) === 47) end--; // '/'
+  return s.slice(0, end);
+}

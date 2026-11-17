@@ -24,7 +24,22 @@ import {
   appendQueryParams,
   sanitizeForLog,
   redactUrlForLog,
+  stripTrailingSlashes,
 } from '../core/safe-url.js';
+
+/** Compare issuer URLs ignoring a trailing slash. */
+function sameIssuer(a, b) {
+  return stripTrailingSlashes(a) === stripTrailingSlashes(b);
+}
+
+/** A readable name for a provider URL: its host (and port). */
+function providerName(url) {
+  try {
+    return new URL(url).host;
+  } catch {
+    return String(url);
+  }
+}
 
 /** Default limits for the login, callback, logout and pod-url endpoints. */
 const DEFAULT_RATE_LIMIT = {
@@ -60,7 +75,13 @@ export function createAuthRouter(options) {
   const REJECTED_LOGIN_MESSAGE = 'This identity provider is not authorised for that WebID.';
 
   const logger = options.logger ?? console;
-  const providers = customProviders ?? DEFAULT_PROVIDERS;
+  // The provider list offered at sign-in always includes the server's
+  // configured default, so a self-hosted identity provider set as the
+  // default can be chosen (it is put first).
+  const listed = customProviders ?? DEFAULT_PROVIDERS;
+  const providers = listed.some((p) => sameIssuer(p.url, defaultIdp))
+    ? listed
+    : [{ name: providerName(defaultIdp), url: defaultIdp, description: 'The identity provider this server uses by default' }, ...listed];
   const router = Router();
 
   // Rate limiting (express-rate-limit). Pass `rateLimit: false` to disable
