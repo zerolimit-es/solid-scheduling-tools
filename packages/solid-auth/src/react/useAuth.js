@@ -6,7 +6,7 @@
  * library dependency in the browser.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 const DEFAULT_FALLBACK_PROVIDERS = [
   { name: 'Inrupt PodSpaces', url: 'https://login.inrupt.com' },
@@ -30,7 +30,13 @@ export function useAuth(config = {}) {
   const [loggingOut, setLoggingOut] = useState(false);
   const [mfaPending, setMfaPending] = useState(false);
   const [providers, setProviders] = useState([]);
-  const [selectedProvider, setSelectedProvider] = useState(defaultProvider);
+  const [selectedProvider, setSelectedProviderState] = useState(defaultProvider);
+  // Once the user picks or types a provider, the server's default no longer replaces it
+  const userChoseProvider = useRef(false);
+  const setSelectedProvider = useCallback((value) => {
+    userChoseProvider.current = true;
+    setSelectedProviderState(value);
+  }, []);
 
   // Helper: fetch with credentials
   const apiFetch = useCallback(async (endpoint, options = {}) => {
@@ -72,7 +78,12 @@ export function useAuth(config = {}) {
   // Fetch providers on mount
   useEffect(() => {
     apiFetch('/api/auth/providers')
-      .then(data => setProviders(data.providers || []))
+      .then(data => {
+        setProviders(data.providers || []);
+        // Preselect the provider the server is configured to use (e.g. a
+        // self-hosted one), unless the user has already chosen
+        if (data.default && !userChoseProvider.current) setSelectedProviderState(data.default);
+      })
       .catch(() => setProviders(fallbackProviders));
   }, [apiFetch, fallbackProviders]);
 
