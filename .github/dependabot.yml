@@ -1,0 +1,22 @@
+# Dependabot version updates: keeps the dependencies and CI actions current.
+# Security updates (the repository setting) react to advisories as they appear.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # Minor and patch bumps in one PR; majors arrive one at a time
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

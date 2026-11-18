@@ -21,7 +21,8 @@
  * @property {(req: import('express').Request) => string|null} getPodUrl — Extract Pod URL from request
  * @property {(req: import('express').Request) => Function|null} getAuthenticatedFetch — Get Solid auth fetch
  * @property {SyncStore} [syncStore] — Injectable store for unsynced bookings
- * @property {(req: import('express').Request) => string} [getTimezone] — Get organizer timezone
+ * @property {(req: import('express').Request) => string} [getTimezone] — Unused (bookings are stored
+ *   with absolute times); still accepted so existing callers keep working
  * @property {Partial<PodPaths>} [podPaths] — Path overrides
  * @property {Console} [logger] — Logger (default: console)
  * @property {false|Object|Function} [rateLimit] — Rate limiting for the sync endpoints:
