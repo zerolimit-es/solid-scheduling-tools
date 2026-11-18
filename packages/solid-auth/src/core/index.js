@@ -6,6 +6,7 @@
 
 export { SolidSessionManager } from './session-manager.js';
 export { discoverPodUrls } from './pod-discovery.js';
+export { findEndSessionUrl } from './end-session.js';
 export {
   verifyWebIdIssuer,
   getTrustedIssuers,

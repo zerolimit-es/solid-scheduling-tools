@@ -17,6 +17,7 @@ import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { discoverPodUrls } from '../core/pod-discovery.js';
 import { verifyWebIdIssuer } from '../core/webid-issuer.js';
+import { findEndSessionUrl } from '../core/end-session.js';
 import { DEFAULT_PROVIDERS, DEFAULT_IDP } from '../core/providers.js';
 import {
   parseHttpUrl,
@@ -383,13 +384,31 @@ export function createAuthRouter(options) {
       }
 
       await sessionManager.logout(req.solidSession);
-      const idpIssuer = req.session?.oidcIssuer || defaultIdp;
+      // Only for a sign-in that completed: then the provider has answered a
+      // full sign-in and the WebID's profile names it. A session that only
+      // started one holds whatever address the visitor typed, and the server
+      // would fetch it here and hand back what it found.
+      //
+      // And only for a provider on the server's own list (the configured
+      // default and the offered providers), using the list's address. A
+      // provider typed in by hand gets no sign-out page: its address came
+      // from the visitor, and the server doesn't fetch that on their say.
+      const signedIn = Boolean(req.session?.webId);
+      const sessionIssuer = req.session?.oidcIssuer || defaultIdp;
+      const listed = providers.find((p) => sameIssuer(p.url, sessionIssuer));
       req.session = null;
+
+      // The provider's own sign-out page, as its discovery document gives
+      // it; left out when it publishes none. Fetched with options.fetch when
+      // given (e.g. one that refuses private addresses).
+      const endSessionUrl = signedIn && listed
+        ? await findEndSessionUrl(listed.url, { fetch: options.fetch })
+        : null;
 
       res.json({
         success: true,
         message: 'Logged out successfully',
-        endSessionUrl: `${idpIssuer}/endsession`,
+        ...(endSessionUrl ? { endSessionUrl } : {}),
       });
     } catch (error) {
       logger.error('[SolidAuth] Logout error:', error);
