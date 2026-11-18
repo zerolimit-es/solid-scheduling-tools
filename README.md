@@ -74,6 +74,13 @@ All stores (session, challenge, credential) are injectable — no hardcoded data
   check runs before `onCallback` and cannot be disabled; pass `verifyIssuer`
   to replace it (for example with one that uses an SSRF-guarded fetch).
   `onCallback` can refuse a login itself by returning `{ reject: true }`.
+- **Sign-out** — `/logout` returns the identity provider's sign-out page
+  (`endSessionUrl`) as its discovery document publishes it
+  (`end_session_endpoint`). The server looks it up only after a completed
+  sign-in, and only for a provider on its own list (`defaultIdp` and
+  `providers`), using the list's address, so it never fetches an address a
+  visitor typed in. Pass `fetch` to make that request with your own fetch
+  (for example one that refuses private addresses).
 - **Passkey ownership** — `/auth-verify` only accepts a credential whose
   `userId` (as returned by `credentialStore.getByCredentialId`) is the user
   being verified, so one account's passkey can't satisfy another's MFA.
