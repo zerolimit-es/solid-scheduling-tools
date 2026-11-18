@@ -384,13 +384,20 @@ export function createAuthRouter(options) {
       }
 
       await sessionManager.logout(req.solidSession);
+      // Only for a sign-in that completed: then the provider has answered a
+      // full sign-in and the WebID's profile names it. A session that only
+      // started one holds whatever address the visitor typed, and the server
+      // would fetch it here and hand back what it found.
+      const signedIn = Boolean(req.session?.webId);
       const idpIssuer = req.session?.oidcIssuer || defaultIdp;
       req.session = null;
 
       // The provider's own sign-out page, as its discovery document gives
       // it; left out when it publishes none. Fetched with options.fetch when
       // given (e.g. one that refuses private addresses).
-      const endSessionUrl = await findEndSessionUrl(idpIssuer, { fetch: options.fetch });
+      const endSessionUrl = signedIn
+        ? await findEndSessionUrl(idpIssuer, { fetch: options.fetch })
+        : null;
 
       res.json({
         success: true,
