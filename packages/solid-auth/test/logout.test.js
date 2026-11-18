@@ -1,6 +1,7 @@
 /**
  * /logout reads the identity provider's sign-out address only for a sign-in
- * that completed, never for an address a visitor merely typed in.
+ * that completed with a provider on the server's list, never for an address
+ * a visitor typed in.
  */
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,6 +26,7 @@ before(async () => {
     baseUrl: 'http://backend.test',
     frontendUrl: 'http://frontend.test',
     rateLimit: false,
+    defaultIdp: 'https://idp.example/',
     logger: { log() {}, warn() {}, error() {} },
     fetch: async (url) => {
       fetched.push(String(url));
@@ -48,6 +50,14 @@ describe('POST /logout', () => {
     const body = await logout();
     assert.equal(body.endSessionUrl, 'https://idp.example/session/end');
     assert.deepEqual(fetched, ['https://idp.example/.well-known/openid-configuration']);
+  });
+
+  it('contacts nothing for a provider typed in by hand', async () => {
+    sessionState = { webId: 'https://bob.example/profile/card#me', oidcIssuer: 'https://own-idp.example/' };
+    const body = await logout();
+    assert.equal(body.success, true);
+    assert.equal(body.endSessionUrl, undefined);
+    assert.deepEqual(fetched, []);
   });
 
   it('contacts nothing for a sign-in that was only started', async () => {
