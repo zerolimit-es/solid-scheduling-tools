@@ -66,6 +66,9 @@
  *   return `{ reject: true }` to refuse the login instead.
  * @property {(req: any, ctx: {oidcIssuer: string}) => Promise<void>} [onLogin]
  * @property {(req: any) => Promise<void>} [onLogout]
+ * @property {typeof globalThis.fetch} [fetch] — Fetch for the router's own server-side
+ *   requests to the identity provider (reading its sign-out address at logout).
+ *   Default: globalThis.fetch.
  */
 
 /**

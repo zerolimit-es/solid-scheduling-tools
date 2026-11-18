@@ -17,6 +17,7 @@ import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { discoverPodUrls } from '../core/pod-discovery.js';
 import { verifyWebIdIssuer } from '../core/webid-issuer.js';
+import { findEndSessionUrl } from '../core/end-session.js';
 import { DEFAULT_PROVIDERS, DEFAULT_IDP } from '../core/providers.js';
 import {
   parseHttpUrl,
@@ -386,10 +387,15 @@ export function createAuthRouter(options) {
       const idpIssuer = req.session?.oidcIssuer || defaultIdp;
       req.session = null;
 
+      // The provider's own sign-out page, as its discovery document gives
+      // it; left out when it publishes none. Fetched with options.fetch when
+      // given (e.g. one that refuses private addresses).
+      const endSessionUrl = await findEndSessionUrl(idpIssuer, { fetch: options.fetch });
+
       res.json({
         success: true,
         message: 'Logged out successfully',
-        endSessionUrl: `${idpIssuer}/endsession`,
+        ...(endSessionUrl ? { endSessionUrl } : {}),
       });
     } catch (error) {
       logger.error('[SolidAuth] Logout error:', error);
