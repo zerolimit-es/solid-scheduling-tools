@@ -14,27 +14,45 @@
     "./solid-pod-sync/express": "./packages/solid-pod-sync/src/express/index.js"
   },
   "scripts": {
-    "test": "node --test packages/*/test/*.test.js"
+    "test": "node --test packages/*/test/*.test.js",
+    "lint": "eslint .",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"packages/*/test/**\" --test-coverage-lines=76 --test-coverage-branches=68 --test-coverage-functions=78 packages/*/test/*.test.js"
   },
   "peerDependencies": {
     "@inrupt/solid-client": "^2.0.0 || ^3.0.0 || ^4.0.0",
     "@inrupt/solid-client-authn-node": "^2.3.0 || ^3.0.0 || ^4.0.0 || ^5.0.0",
-    "@simplewebauthn/server": "^13.0.0 || ^14.0.0",
     "@simplewebauthn/browser": "^13.0.0 || ^14.0.0",
+    "@simplewebauthn/server": "^13.0.0 || ^14.0.0",
     "express": "^4.18.0 || ^5.0.0",
-    "react": "^18.0.0 || ^19.0.0",
+    "express-rate-limit": "^7.0.0 || ^8.0.0",
     "ioredis": "^5.0.0 || ^6.0.0",
-    "express-rate-limit": "^7.0.0 || ^8.0.0"
+    "react": "^18.0.0 || ^19.0.0"
   },
   "peerDependenciesMeta": {
-    "@inrupt/solid-client": { "optional": true },
-    "@inrupt/solid-client-authn-node": { "optional": true },
-    "@simplewebauthn/server": { "optional": true },
-    "@simplewebauthn/browser": { "optional": true },
-    "express": { "optional": true },
-    "react": { "optional": true },
-    "ioredis": { "optional": true },
-    "express-rate-limit": { "optional": true }
+    "@inrupt/solid-client": {
+      "optional": true
+    },
+    "@inrupt/solid-client-authn-node": {
+      "optional": true
+    },
+    "@simplewebauthn/server": {
+      "optional": true
+    },
+    "@simplewebauthn/browser": {
+      "optional": true
+    },
+    "express": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "ioredis": {
+      "optional": true
+    },
+    "express-rate-limit": {
+      "optional": true
+    }
   },
   "author": "ZeroLimit",
   "license": "MIT",
@@ -42,10 +60,14 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@inrupt/solid-client": "^4.0.0",
     "@inrupt/solid-client-authn-node": "^5.0.3",
     "@simplewebauthn/server": "^14.0.3",
+    "eslint": "^10.15.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "express": "^5.3.0",
-    "express-rate-limit": "^8.7.2"
+    "express-rate-limit": "^8.7.2",
+    "globals": "^17.14.0"
   }
 }

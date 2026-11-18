@@ -44,7 +44,6 @@ export function createSyncRouter(options) {
     getPodUrl,
     getAuthenticatedFetch,
     syncStore,
-    getTimezone,
     podPaths,
     onSyncComplete,
     getFallbackBookings,
@@ -92,7 +91,6 @@ export function createSyncRouter(options) {
 
       let synced = 0;
       let failed = 0;
-      const timezone = getTimezone?.(req) || 'UTC';
 
       for (const booking of unsynced) {
         try {

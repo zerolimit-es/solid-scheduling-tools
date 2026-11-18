@@ -95,6 +95,20 @@ All stores (session, challenge, credential) are injectable — no hardcoded data
   code redacted. Helpers are exported from `solid-auth/core` (`sanitizeForLog`,
   `redactUrlForLog`, `resolveAllowedRedirect`, `appendQueryParams`).
 
+## Development
+
+```bash
+npm ci
+npm test               # all package tests
+npm run test:coverage  # with the coverage minimums CI enforces
+npm run lint
+```
+
+CI runs lint, the tests with coverage (it fails if coverage drops below the
+minimums in `package.json`; raise them when you add tests) and `npm audit`,
+on every change and weekly. Dependabot keeps dependencies and CI actions
+current.
+
 ## License
 
 MIT
